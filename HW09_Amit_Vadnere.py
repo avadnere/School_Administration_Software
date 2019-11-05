@@ -12,7 +12,7 @@ class Repository:
 
     """ Holds the information about the students, instructors and grades for a single University"""
 
-    COURSE_CATALOG =  collections.defaultdict(lambda: collections.defaultdict(set))
+    COURSE_CATALOG = collections.defaultdict(lambda: collections.defaultdict(set))
     def __init__(self, university_name, directory, pretty_print):
 
         """initalize the variables."""
@@ -32,7 +32,7 @@ class Repository:
             print(self.pretty_print_student_summary())
             print("Instructor Summary")
             print(self.pretty_print_instructor_summary())
-            
+
     def file_reading_gen(self, path, fields, sep='\t', header=False):
 
         """ yield a tuple with all of the values from a single line in the file """
@@ -57,7 +57,8 @@ class Repository:
         file_name = os.path.join(self.__directory, "students.txt")
         try:
             for student in self.file_reading_gen(file_name, 3, ';', header=True):
-                self.__student_summary[student[0]] = Student(cwid=student[0], name=student[1], major=student[2])
+                self.__student_summary[student[0]] = Student(cwid=student[0], name=student[1],
+                                                             major=student[2])
 
         except FileNotFoundError as fnfe:
             print(fnfe)
@@ -74,7 +75,8 @@ class Repository:
         file_name = os.path.join(self.__directory, "instructors.txt")
         try:
             for instructor in self.file_reading_gen(file_name, 3, '|', header=True):
-                self.__instructor_summary[instructor[0]] = Instructor(instructor[0], instructor[1], instructor[2])
+                self.__instructor_summary[instructor[0]] = Instructor(instructor[0], instructor[1],
+                                                                      instructor[2])
 
         except FileNotFoundError as fnfe:
             print(fnfe)
@@ -94,7 +96,7 @@ class Repository:
                 student_instance = self.__student_summary[student[0]]
                 instructor_instance = self.__instructor_summary[student[3]]
                 instructor_instance.add_course(student[1])
-                if student[2] in ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C'] :
+                if student[2] in ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C']:
                     student_instance.add_course_and_grade(student[1], student[2])
 
         except FileNotFoundError as fnfe:
@@ -107,8 +109,8 @@ class Repository:
             print(f"File cannot be open {self.__directory} {error}")
 
     def create_course_catalog(self):
-        "creates course catalog for all majors"
 
+        "creates course catalog for all majors"
         file_name = os.path.join(self.__directory, "majors.txt")
         try:
             for major in self.file_reading_gen(file_name, 3, '\t', header=True):
@@ -119,7 +121,7 @@ class Repository:
                 elif major[1] == "E":    
                     major_Requirement = Repository.COURSE_CATALOG[major[0]]
                     major_Requirement["Elective"].add(major[2])
-                
+
                 else:
                     raise ValueError("Unexpected Value of flag in major.txt")
 
@@ -308,5 +310,3 @@ class Instructor:
         """ return the courses for instructor """
         return self.__courses
 
-# PATH = "f:\Stevens\Courses\SSW-810 Special topics in python\Assignment_10\School_Administration_Software"
-# Repository("NYU", PATH, True)
