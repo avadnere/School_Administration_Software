@@ -12,6 +12,7 @@ class Repository:
 
     """ Holds the information about the students, instructors and grades for a single University"""
 
+    COURSE_CATALOG =  collections.defaultdict(lambda: collections.defaultdict(set))
     def __init__(self, university_name, directory, pretty_print):
 
         """initalize the variables."""
@@ -23,10 +24,15 @@ class Repository:
         self.get_student()
         self.get_instructor()
         self.get_grade()
+        self.create_course_catalog()
         if pretty_print:
+            print("Major Summary")
+            print(self.pretty_print_major_summary())
+            print("Student Summary")
             print(self.pretty_print_student_summary())
+            print("Instructor Summary")
             print(self.pretty_print_instructor_summary())
-
+            
     def file_reading_gen(self, path, fields, sep='\t', header=False):
 
         """ yield a tuple with all of the values from a single line in the file """
@@ -50,7 +56,7 @@ class Repository:
         """ get the student detail"""
         file_name = os.path.join(self.__directory, "students.txt")
         try:
-            for student in self.file_reading_gen(file_name, 3, '\t'):
+            for student in self.file_reading_gen(file_name, 3, ';', header=True):
                 self.__student_summary[student[0]] = Student(cwid=student[0], name=student[1], major=student[2])
 
         except FileNotFoundError as fnfe:
@@ -67,7 +73,7 @@ class Repository:
         """ get the instructor details"""
         file_name = os.path.join(self.__directory, "instructors.txt")
         try:
-            for instructor in self.file_reading_gen(file_name, 3, '\t'):
+            for instructor in self.file_reading_gen(file_name, 3, '|', header=True):
                 self.__instructor_summary[instructor[0]] = Instructor(instructor[0], instructor[1], instructor[2])
 
         except FileNotFoundError as fnfe:
@@ -84,11 +90,12 @@ class Repository:
         """ get the instructor details"""
         file_name = os.path.join(self.__directory, "grades.txt")
         try:
-            for student in self.file_reading_gen(file_name, 4, '\t'):
+            for student in self.file_reading_gen(file_name, 4, '|', header=True):
                 student_instance = self.__student_summary[student[0]]
                 instructor_instance = self.__instructor_summary[student[3]]
-                student_instance.add_course_and_grade(student[1], student[2])
                 instructor_instance.add_course(student[1])
+                if student[2] in ['A', 'A-', 'B+', 'B', 'B-', 'C+', 'C'] :
+                    student_instance.add_course_and_grade(student[1], student[2])
 
         except FileNotFoundError as fnfe:
             print(fnfe)
@@ -99,13 +106,56 @@ class Repository:
         except Exception as error:
             print(f"File cannot be open {self.__directory} {error}")
 
+    def create_course_catalog(self):
+        "creates course catalog for all majors"
+
+        file_name = os.path.join(self.__directory, "majors.txt")
+        try:
+            for major in self.file_reading_gen(file_name, 3, '\t', header=True):
+                if major[1] == "R":
+                    major_Requirement = Repository.COURSE_CATALOG[major[0]]
+                    major_Requirement["Required"].add(major[2])
+
+                elif major[1] == "E":    
+                    major_Requirement = Repository.COURSE_CATALOG[major[0]]
+                    major_Requirement["Elective"].add(major[2])
+                
+                else:
+                    raise ValueError("Unexpected Value of flag in major.txt")
+
+        except FileNotFoundError as fnfe:
+            print(fnfe)
+
+        except ValueError as ve:
+            print(ve)
+
+        except Exception as error:
+            print(f"File cannot be open {self.__directory} {error}")
+
+
     def pretty_print_student_summary(self):
 
         """ prints the preety table with student summary"""
-        table = PrettyTable(field_names=Student.FIELD_NAME)
+        try:
 
-        for student_detail in self.__student_summary.values():
-            pretty_row = student_detail.get_student_row()
+            table = PrettyTable(field_names=Student.FIELD_NAME)
+
+            for student_detail in self.__student_summary.values():
+                pretty_row = student_detail.get_student_row()
+                table.add_row(pretty_row)
+            
+            return table
+
+        except ValueError as ve:
+            print(ve)
+
+    def pretty_print_major_summary(self):
+    
+        """ prints the preety table with major summary"""
+        MAJOR_FIELD_NAME = ["Dept", "Reuquired", "Electives"]
+        table = PrettyTable(field_names=MAJOR_FIELD_NAME)
+        for dept, major_details in Repository.COURSE_CATALOG.items():
+            pretty_row = (dept, major_details["Required"], major_details["Elective"])
             table.add_row(pretty_row)
 
         return table
@@ -145,7 +195,7 @@ class Student:
 
     "Holds all of the details of a student"
 
-    FIELD_NAME = ['CWID', 'Name', 'Courses']
+    FIELD_NAME = ['CWID', 'Name', 'Major', 'Completed Courses', 'Remaining Required', 'Remaining Electivies']
 
     def __init__(self, cwid, name, major):
 
@@ -164,7 +214,8 @@ class Student:
 
         """ return the student detail for pretty row """
         courseList = [course for course in self.__courses]
-        pretty_row = (self.__cwid, self.__name, sorted(courseList))
+        pretty_row = (self.__cwid, self.__name, self.__major, sorted(courseList), 
+                      self.get_remaining_required(), self.get_remaining_elective())
         return pretty_row
 
     def get_cwid(self):
@@ -186,6 +237,31 @@ class Student:
 
         """ return the courses for student"""
         return self.__courses
+    
+    def get_remaining_required(self):
+        
+        """return remaining required courses"""
+        courseList = set(course for course in self.__courses)
+        major_detail = Repository.COURSE_CATALOG[self.__major]
+        if len(major_detail) < 1:
+            raise ValueError(f"No Major as {self.__major} found in Course Catalog for cwid:{self.__cwid}")
+        required_courses = major_detail["Required"]
+
+        return required_courses-courseList
+    
+    def get_remaining_elective(self):
+        
+        """return remaining elective courses"""
+        courseList = set(course for course in self.__courses)
+        major_detail = Repository.COURSE_CATALOG[self.__major]
+        if len(major_detail) < 1:
+            raise ValueError(f"No Major as {self.__major} found in Course Catalog for cwid:{self.__cwid}")
+        elective_courses = major_detail["Elective"]
+        remaining_elective = elective_courses-courseList
+        if len(remaining_elective) == len(elective_courses):
+            return remaining_elective
+        else:
+            return None
 
 class Instructor:
 
@@ -231,3 +307,6 @@ class Instructor:
 
         """ return the courses for instructor """
         return self.__courses
+
+# PATH = "f:\Stevens\Courses\SSW-810 Special topics in python\Assignment_10\School_Administration_Software"
+# Repository("NYU", PATH, True)
