@@ -1,10 +1,11 @@
 """
-Created on 2019-10-31 15:46:23
+Created on 2019-11-12 16:27:18
 @author: Amit Vadnere
 Data repository of courses, students, and instructor
 """
 import collections
 import os
+import sqlite3
 from prettytable import PrettyTable
 
 
@@ -13,6 +14,7 @@ class Repository:
     """ Holds the information about the students, instructors and grades for a single University"""
 
     COURSE_CATALOG = collections.defaultdict(lambda: collections.defaultdict(set))
+    DB_FILE = "810_startup.db"
     def __init__(self, university_name, directory, pretty_print):
 
         """initalize the variables."""
@@ -32,6 +34,10 @@ class Repository:
             print(self.pretty_print_student_summary())
             print("Instructor Summary")
             print(self.pretty_print_instructor_summary())
+            print("Instructor Summary using Database")
+            print(self.instructor_table_db(Repository.DB_FILE))
+            
+        
 
     def file_reading_gen(self, path, fields, sep='\t', header=False):
 
@@ -56,7 +62,7 @@ class Repository:
         """ get the student detail"""
         file_name = os.path.join(self.__directory, "students.txt")
         try:
-            for student in self.file_reading_gen(file_name, 3, ';', header=True):
+            for student in self.file_reading_gen(file_name, 3, '\t', header=True):
                 self.__student_summary[student[0]] = Student(cwid=student[0], name=student[1],
                                                              major=student[2])
 
@@ -74,7 +80,7 @@ class Repository:
         """ get the instructor details"""
         file_name = os.path.join(self.__directory, "instructors.txt")
         try:
-            for instructor in self.file_reading_gen(file_name, 3, '|', header=True):
+            for instructor in self.file_reading_gen(file_name, 3, '\t', header=True):
                 self.__instructor_summary[instructor[0]] = Instructor(instructor[0], instructor[1],
                                                                       instructor[2])
 
@@ -92,7 +98,7 @@ class Repository:
         """ get the instructor details"""
         file_name = os.path.join(self.__directory, "grades.txt")
         try:
-            for student in self.file_reading_gen(file_name, 4, '|', header=True):
+            for student in self.file_reading_gen(file_name, 4, '\t', header=True):
                 student_instance = self.__student_summary[student[0]]
                 instructor_instance = self.__instructor_summary[student[3]]
                 instructor_instance.add_course(student[1])
@@ -159,6 +165,31 @@ class Repository:
         for dept, major_details in Repository.COURSE_CATALOG.items():
             pretty_row = (dept, major_details["Required"], major_details["Elective"])
             table.add_row(pretty_row)
+
+        return table
+
+    def instructor_table_db(self, db_path):
+        
+        """ prints the preety table with instructor summary using database"""
+        table = PrettyTable(field_names=Instructor.FIELD_NAME)
+
+        SQL_STATEMENT = """SELECT instructors.cwid, 
+                        instructors.name, 
+                        instructors.Dept, 
+                        grades.Course, 
+                        count(grades.StudentCWID) as Student_Count
+                        FROM grades
+                        inner join instructors on 
+                        instructors.CWID = grades.InstructorCWID 
+                        group by 
+                        grades.course , 
+                        instructors.cwid 
+                        order by count(*) 
+                        DESC"""
+
+        db = sqlite3.connect(db_path)
+        for row in db.execute(SQL_STATEMENT):
+            table.add_row(row)
 
         return table
 
