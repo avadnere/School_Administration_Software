@@ -9,6 +9,40 @@ import sqlite3
 from prettytable import PrettyTable
 
 
+def get_instructor_course_summary():
+        
+        """ prints the preety table with instructor summary using database"""
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(BASE_DIR, "810_startup.db")
+        try:
+            db = sqlite3.connect(db_path)
+
+        except sqlite3.OperationalError:
+            return f"Error unable to open database at {db_path}"
+        
+        else:
+            SQL_STATEMENT = """SELECT instructors.cwid, 
+                            instructors.name, 
+                            instructors.Dept, 
+                            grades.Course, 
+                            count(grades.StudentCWID) as Student_Count
+                            FROM Grades
+                            inner join instructors on 
+                            instructors.CWID = Grades.InstructorCWID 
+                            group by 
+                            Grades.course , 
+                            instructors.cwid 
+                            order by count(*) 
+                            DESC"""
+
+            
+            data = [{'cwid': cwid, 'Name':name, 'Department':department, 'Course':course, 'Student':Student_Count}
+                    for cwid, name, department, course, Student_Count in db.execute(SQL_STATEMENT)]
+
+            db.close()
+            
+            return data
+
 class Repository:
 
     """ Holds the information about the students, instructors and grades for a single University"""
@@ -341,3 +375,4 @@ class Instructor:
         """ return the courses for instructor """
         return self.__courses
 
+get_instructor_course_summary()

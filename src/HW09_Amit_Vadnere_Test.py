@@ -6,8 +6,16 @@ Test the Data repository of courses, students, and instructor
 
 import unittest
 import os
-from HW09_Amit_Vadnere import Repository, Student, Instructor
+from HW09_Amit_Vadnere import Repository, Student, Instructor, get_instructor_course_summary
 
+class TesTInstructorSummaryFunction(unittest.TestCase):
+    "Test the get_instructor_course_summary"
+
+    def test_get_instructor_course_summary(self):
+        """Test the get_instructor_course_summary"""
+        data = get_instructor_course_summary()
+        self.assertEqual(data[0]["cwid"],"98763")
+        self.assertEqual(data[0]["Name"],"Rowland, J")
 
 class TestRepository(unittest.TestCase):
 
